@@ -1,0 +1,7 @@
+{
+  "XGBoost": 0.9423,
+  "Random Forest": 0.0,
+  "LightGBM": 0.0,
+  "Decision Tree": 0.0,
+  "best_model": "XGBoost"
+}

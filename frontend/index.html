@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ChurnCare AI</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div>
+          <p class="eyebrow">Retention Intelligence</p>
+          <h1>ChurnCare AI</h1>
+          <p class="lede">Upload customer records, spot at-risk accounts, and get plain-English retention guidance in one place.</p>
+        </div>
+
+        <nav class="nav-card">
+          <a href="#predict" class="nav-link active">Predict & explain</a>
+          <a href="#models" class="nav-link">Model comparison</a>
+        </nav>
+
+        <section class="mini-card">
+          <h2>How it works</h2>
+          <ul>
+            <li>Upload a CSV of customer activity data.</li>
+            <li>See churn risk ranked from highest to lowest.</li>
+            <li>Click any customer to view SHAP-based explanations and next-step advice.</li>
+          </ul>
+        </section>
+
+        <section class="mini-card accent-card">
+          <h2>Current model</h2>
+          <p class="stat-label">Best model in the comparison view</p>
+          <strong id="best-model-pill">XGBoost</strong>
+          <p class="small-print">The model comparison page is ready for your teammates to add random forest, LightGBM, and decision tree scores.</p>
+        </section>
+      </aside>
+
+      <main class="content">
+        <section id="predict" class="panel hero-panel">
+          <div>
+            <p class="eyebrow">Demo workspace</p>
+            <h2>Upload your customer CSV</h2>
+            <p class="section-copy">The dashboard prioritises risk so the most urgent customers appear first. Explanations are written in plain English to help your team act quickly.</p>
+          </div>
+          <div class="chip-row">
+            <span class="chip">XGBoost</span>
+            <span class="chip">SHAP explanations</span>
+            <span class="chip">Retention advice</span>
+          </div>
+        </section>
+
+        <section class="panel grid-2">
+          <article class="card upload-card">
+            <h3>1. Upload a file</h3>
+            <form id="upload-form" class="upload-form">
+              <label class="upload-box" for="csv-file">
+                <input id="csv-file" name="file" type="file" accept=".csv" required />
+                <span id="file-label">Choose CSV file</span>
+              </label>
+              <button id="submit-btn" type="submit">Run risk analysis</button>
+            </form>
+            <p class="small-print">Tip: the demo sample file is already saved in the backend as 25 rows for quick testing.</p>
+          </article>
+
+          <article class="card summary-card">
+            <h3>2. Risk summary</h3>
+            <div class="summary-grid">
+              <div>
+                <p class="stat-label">Customers analysed</p>
+                <strong id="total-customers">0</strong>
+              </div>
+              <div>
+                <p class="stat-label">Highest risk</p>
+                <strong id="highest-risk">—</strong>
+              </div>
+              <div>
+                <p class="stat-label">Best model</p>
+                <strong id="best-model">XGBoost</strong>
+              </div>
+              <div>
+                <p class="stat-label">Priority</p>
+                <strong id="priority-note">Waiting for a file</strong>
+              </div>
+            </div>
+          </article>
+        </section>
+
+        <section class="panel">
+          <div class="section-header">
+            <div>
+              <p class="eyebrow">Priority queue</p>
+              <h3>Risk-ranked customers</h3>
+            </div>
+            <p class="small-print">Click any customer row to open a retention report and suggested actions.</p>
+          </div>
+          <div id="results-state" class="empty-state">No results yet. Upload a CSV file to begin.</div>
+          <div id="results-table-wrap" class="results-wrap hidden">
+            <table class="results-table">
+              <thead>
+                <tr>
+                  <th>Priority</th>
+                  <th>Customer</th>
+                  <th>Risk</th>
+                  <th>Level</th>
+                </tr>
+              </thead>
+              <tbody id="results-body"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel details-grid">
+          <article class="card detail-panel" id="detail-card">
+            <p class="eyebrow">Detailed report</p>
+            <h3 id="detail-title">Select a customer</h3>
+            <p id="detail-text" class="detail-copy">Click a row in the risk table to see the explanation and suggested next steps.</p>
+          </article>
+          <article class="card advice-panel">
+            <p class="eyebrow">What to do</p>
+            <h3>Suggested retention actions</h3>
+            <ul id="advice-list" class="advice-list">
+              <li>Upload a CSV file to generate tailored retention advice.</li>
+            </ul>
+          </article>
+        </section>
+
+        <section id="models" class="panel panel-compare">
+          <div class="section-header">
+            <div>
+              <p class="eyebrow">Benchmark page</p>
+              <h3>Model comparison</h3>
+            </div>
+            <p class="small-print">The current XGBoost score is shown now, and your teammates can add the other models here as they finish training them.</p>
+          </div>
+          <div id="model-cards" class="model-grid"></div>
+        </section>
+      </main>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
