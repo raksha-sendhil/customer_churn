@@ -14,52 +14,34 @@
   </head>
   <body>
     <div class="app-shell">
+      <!-- Sidebar -->
       <aside class="sidebar">
         <div>
           <p class="eyebrow">Retention Intelligence</p>
           <h1>ChurnCare AI</h1>
-          <p class="lede">Upload customer records, spot at-risk accounts, and get plain-English retention guidance in one place.</p>
+          <p class="lede">Upload customer records to spot at-risk accounts and get plain-English retention guidance.</p>
         </div>
 
         <nav class="nav-card">
-          <a href="#predict" class="nav-link active">Predict & explain</a>
+          <a href="#predict" class="nav-link active">Predict &amp; explain</a>
           <a href="#models" class="nav-link">Model comparison</a>
         </nav>
 
         <section class="mini-card">
-          <h2>How it works</h2>
-          <ul>
-            <li>Upload a CSV of customer activity data.</li>
-            <li>See churn risk ranked from highest to lowest.</li>
-            <li>Click any customer to view SHAP-based explanations and next-step advice.</li>
-          </ul>
-        </section>
-
-        <section class="mini-card accent-card">
-          <h2>Current model</h2>
-          <p class="stat-label">Best model in the comparison view</p>
-          <strong id="best-model-pill">XGBoost</strong>
-          <p class="small-print">The model comparison page is ready for your teammates to add random forest, LightGBM, and decision tree scores.</p>
+          <h2>Active model</h2>
+          <p class="stat-label">Best F1 score across all trained models</p>
+          <strong id="best-model-pill">—</strong>
         </section>
       </aside>
 
+      <!-- Main content -->
       <main class="content">
-        <section id="predict" class="panel hero-panel">
-          <div>
-            <p class="eyebrow">Demo workspace</p>
-            <h2>Upload your customer CSV</h2>
-            <p class="section-copy">The dashboard prioritises risk so the most urgent customers appear first. Explanations are written in plain English to help your team act quickly.</p>
-          </div>
-          <div class="chip-row">
-            <span class="chip">XGBoost</span>
-            <span class="chip">SHAP explanations</span>
-            <span class="chip">Retention advice</span>
-          </div>
-        </section>
 
-        <section class="panel grid-2">
+        <!-- Hero + upload -->
+        <section id="predict" class="panel grid-2">
           <article class="card upload-card">
-            <h3>1. Upload a file</h3>
+            <p class="eyebrow">Step 1</p>
+            <h3>Upload your customer CSV</h3>
             <form id="upload-form" class="upload-form">
               <label class="upload-box" for="csv-file">
                 <input id="csv-file" name="file" type="file" accept=".csv" required />
@@ -67,11 +49,12 @@
               </label>
               <button id="submit-btn" type="submit">Run risk analysis</button>
             </form>
-            <p class="small-print">Tip: the demo sample file is already saved in the backend as 25 rows for quick testing.</p>
+            <p class="small-print">Tip: the demo sample CSV (25 rows) is saved in the backend folder for quick testing.</p>
           </article>
 
           <article class="card summary-card">
-            <h3>2. Risk summary</h3>
+            <p class="eyebrow">Step 2</p>
+            <h3>Risk summary</h3>
             <div class="summary-grid">
               <div>
                 <p class="stat-label">Customers analysed</p>
@@ -82,26 +65,27 @@
                 <strong id="highest-risk">—</strong>
               </div>
               <div>
-                <p class="stat-label">Best model</p>
-                <strong id="best-model">XGBoost</strong>
+                <p class="stat-label">Active model</p>
+                <strong id="best-model">—</strong>
               </div>
               <div>
-                <p class="stat-label">Priority</p>
-                <strong id="priority-note">Waiting for a file</strong>
+                <p class="stat-label">Priority account</p>
+                <strong id="priority-note">Waiting for upload</strong>
               </div>
             </div>
           </article>
         </section>
 
+        <!-- Risk table -->
         <section class="panel">
           <div class="section-header">
             <div>
               <p class="eyebrow">Priority queue</p>
               <h3>Risk-ranked customers</h3>
             </div>
-            <p class="small-print">Click any customer row to open a retention report and suggested actions.</p>
+            <p class="small-print">Click any row to open a full retention report.</p>
           </div>
-          <div id="results-state" class="empty-state">No results yet. Upload a CSV file to begin.</div>
+          <div id="results-state" class="empty-state">No results yet — upload a CSV file to begin.</div>
           <div id="results-table-wrap" class="results-wrap hidden">
             <table class="results-table">
               <thead>
@@ -117,32 +101,55 @@
           </div>
         </section>
 
-        <section class="panel details-grid">
-          <article class="card detail-panel" id="detail-card">
-            <p class="eyebrow">Detailed report</p>
-            <h3 id="detail-title">Select a customer</h3>
-            <p id="detail-text" class="detail-copy">Click a row in the risk table to see the explanation and suggested next steps.</p>
-          </article>
-          <article class="card advice-panel">
-            <p class="eyebrow">What to do</p>
-            <h3>Suggested retention actions</h3>
-            <ul id="advice-list" class="advice-list">
-              <li>Upload a CSV file to generate tailored retention advice.</li>
-            </ul>
-          </article>
-        </section>
-
-        <section id="models" class="panel panel-compare">
+        <!-- Model comparison -->
+        <section id="models" class="panel">
           <div class="section-header">
             <div>
-              <p class="eyebrow">Benchmark page</p>
+              <p class="eyebrow">Benchmark</p>
               <h3>Model comparison</h3>
             </div>
-            <p class="small-print">The current XGBoost score is shown now, and your teammates can add the other models here as they finish training them.</p>
+            <p class="small-print">Ranked by accuracy. F1, precision, and recall shown below each model.</p>
           </div>
           <div id="model-cards" class="model-grid"></div>
         </section>
+
       </main>
+    </div>
+
+    <!-- Customer detail modal -->
+    <div id="modal-overlay" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="modal">
+        <button class="modal-close" id="modal-close" aria-label="Close">✕</button>
+
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Retention report</p>
+            <h2 id="modal-title">Customer —</h2>
+          </div>
+          <span id="modal-badge" class="badge"></span>
+        </div>
+
+        <div class="modal-body">
+          <div class="modal-col">
+            <section class="modal-section">
+              <h4>Why this customer is at risk</h4>
+              <div id="modal-summary"></div>
+            </section>
+
+            <section class="modal-section">
+              <h4>What to do</h4>
+              <ul id="modal-suggestions" class="advice-list"></ul>
+            </section>
+          </div>
+
+          <div class="modal-col">
+            <section class="modal-section">
+              <h4>Key risk factors <span class="hint">(SHAP impact)</span></h4>
+              <div id="modal-features"></div>
+            </section>
+          </div>
+        </div>
+      </div>
     </div>
 
     <script src="app.js"></script>

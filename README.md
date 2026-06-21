@@ -43,7 +43,7 @@ customer_churn/
 ```bash
 # Windows
 python -m venv .venv
-.venv\Scripts\activate
+.venv\Scripts\activate.ps1
 
 # macOS / Linux
 python -m venv .venv

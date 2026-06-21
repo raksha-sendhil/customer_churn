@@ -19,7 +19,6 @@ MODEL_PATH = MODEL_DIR / 'decision_tree_model.joblib'
 METADATA_PATH = MODEL_DIR / 'decision_tree_metadata.json'
 SCORES_PATH = BASE_DIR / 'model_scores.json'
 
-# In-memory cache — populated on first request, avoids repeated disk reads.
 _model_cache = None
 _metadata_cache = None
 
@@ -49,12 +48,8 @@ def build_features(frame: pd.DataFrame):
     }
 
 
-def update_shared_scores(model_accuracy: float):
-    """
-    Update only the 'Decision Tree' entry in the shared model_scores.json,
-    without overwriting other teammates' scores. Recomputes best_model
-    across whichever models have a real (>0) score so far.
-    """
+def update_shared_scores(f1: float):
+    """Update only the Decision Tree entry in model_scores.json using F1 as the ranking metric."""
     model_names = ['XGBoost', 'Random Forest', 'LightGBM', 'Decision Tree']
 
     if SCORES_PATH.exists():
@@ -62,11 +57,10 @@ def update_shared_scores(model_accuracy: float):
     else:
         scores = {name: 0.0 for name in model_names}
 
-    scores['Decision Tree'] = round(float(model_accuracy), 4)
+    scores['Decision Tree'] = round(float(f1), 4)
 
     trained = [n for n in model_names if scores.get(n, 0) > 0]
     scores['best_model'] = max(trained, key=lambda n: scores[n]) if trained else 'XGBoost'
-
     SCORES_PATH.write_text(json.dumps(scores, indent=2), encoding='utf-8')
     return scores
 
@@ -76,8 +70,6 @@ def train_model():
 
     df = load_raw_dataset()
 
-    # Only create the shared demo sample if it doesn't already exist —
-    # XGBoost's script owns this file; we don't want to overwrite it.
     if not SAMPLE_FILE.exists():
         sample = df.sample(n=25, random_state=42).copy()
         sample.to_csv(SAMPLE_FILE, index=False)
@@ -102,16 +94,18 @@ def train_model():
     precision = precision_score(y_test, y_pred, zero_division=0)
     recall = recall_score(y_test, y_pred, zero_division=0)
 
-    metadata['accuracy'] = float(accuracy)
-    metadata['f1_score'] = float(f1)
-    metadata['precision'] = float(precision)
-    metadata['recall'] = float(recall)
-    metadata['label'] = 'Churn'
+    metadata.update({
+        'accuracy': float(accuracy),
+        'f1_score': float(f1),
+        'precision': float(precision),
+        'recall': float(recall),
+        'label': 'Churn',
+    })
 
     joblib.dump(model, MODEL_PATH)
     METADATA_PATH.write_text(json.dumps(metadata, indent=2), encoding='utf-8')
 
-    update_shared_scores(accuracy)
+    update_shared_scores(f1)
 
     _model_cache = model
     _metadata_cache = metadata
@@ -167,12 +161,9 @@ def predict_probabilities(frame: pd.DataFrame):
 
 
 def compute_shap_values(model, encoded: pd.DataFrame) -> np.ndarray:
-    """Compute SHAP values for all rows in one pass."""
     explainer = shap.TreeExplainer(model)
     shap_obj = explainer(encoded)
     values = np.asarray(shap_obj.values)
-    # For multi-output models shap returns (n_samples, n_features, n_classes);
-    # take the positive-class slice to get (n_samples, n_features).
     if values.ndim == 3:
         values = values[:, :, 1]
     return values
@@ -186,12 +177,10 @@ def explain_row(
     metadata=None,
     encoded=None,
     shap_values=None,
+    row_probability=None,
 ):
-    """Generate a human-readable explanation for one customer row.
+    from xgBoost import build_suggestions, human_explanation
 
-    Pass pre-computed model, metadata, encoded, and shap_values to avoid
-    redundant work when calling this in a loop over many rows.
-    """
     if model is None or metadata is None:
         model, metadata, _ = ensure_model_ready()
     if encoded is None:
@@ -226,78 +215,14 @@ def explain_row(
             'The model finds this customer is generally stable, with no single factor pushing churn risk sharply higher.'
         )
 
-    suggestions = build_suggestions(positive_features, frame.iloc[index])
+    risk = row_probability if row_probability is not None else float(model.predict_proba(encoded)[index, 1])
     return {
-        'risk_score': round(float(model.predict_proba(encoded)[index, 1]), 4),
+        'risk_score': round(risk, 4),
         'top_features': top_features,
         'summary': summary,
-        'suggestions': suggestions,
+        'suggestions': build_suggestions(positive_features, frame.iloc[index]),
         'feature_values': frame.iloc[index].to_dict(),
     }
-
-
-def human_explanation(feature_name: str, impact: float, positive: bool = True):
-    """Translate a SHAP contribution into plain-English guidance."""
-    label = feature_name.replace('_', ' ').replace('  ', ' ')
-
-    if positive:
-        if 'Satisfaction' in feature_name:
-            return 'Low satisfaction levels are raising churn risk. The customer seems less confident in the service, which can make them more likely to leave.'
-        if 'Complain' in feature_name:
-            return 'Recent complaints are pushing the churn risk up. Fast support follow-up and issue resolution would help rebuild trust.'
-        if 'Tenure' in feature_name:
-            return 'This customer has a shorter time with the brand, and that can make them more willing to switch. A welcome or loyalty touchpoint would help.'
-        if 'WarehouseToHome' in feature_name or 'Distance' in feature_name:
-            return 'Delivery distance is making the experience less convenient, which increases the odds of churn. Better delivery options or faster fulfilment could help.'
-        if 'OrderAmountHike' in feature_name or 'Hike' in feature_name:
-            return 'A recent increase in order spend is making the customer feel less comfortable, which can raise churn risk. Review pricing or offer value-based incentives.'
-        if 'Coupon' in feature_name or 'Cashback' in feature_name:
-            return 'The customer is not getting enough value from rewards right now, so churn risk is climbing. A targeted offer or loyalty reward may help.'
-        if 'DaySinceLastOrder' in feature_name:
-            return 'The customer has been inactive for a while, which is increasing churn risk. A re-engagement message or reminder could bring them back.'
-        if 'PreferredPayment' in feature_name or 'Payment' in feature_name:
-            return 'Payment preferences are a clue here, and the current setup may be reducing confidence. A smoother checkout experience could improve retention.'
-        return f'{label} is one of the main reasons this customer looks at risk. Improving this area could reduce the chance of churn.'
-
-    else:
-        if 'Satisfaction' in feature_name:
-            return "Higher satisfaction is working in the customer's favour and helping lower churn risk."
-        if 'Coupon' in feature_name or 'Cashback' in feature_name:
-            return "A stronger rewards pattern is helping the customer stay engaged and reducing churn risk."
-        return f"{label} is helping the customer stay more stable, which is offsetting some churn pressure."
-
-
-def build_suggestions(positive_features, row):
-    suggestions = []
-    features = {item['feature']: item['impact'] for item in positive_features}
-
-    if any('Satisfaction' in key for key in features):
-        suggestions.append('Reach out with a personalised support follow-up and ask what is affecting satisfaction.')
-    if any('Complain' in key for key in features):
-        suggestions.append('Resolve recent complaints quickly and send a reassurance message about the next steps.')
-    if any('Tenure' in key for key in features):
-        suggestions.append('Offer a loyalty or onboarding incentive to strengthen the customer relationship early.')
-    if any('WarehouseToHome' in key or 'Distance' in key for key in features):
-        suggestions.append('Improve delivery convenience with faster fulfilment, better tracking, or nearby pickup options.')
-    if any('Coupon' in key or 'Cashback' in key for key in features):
-        suggestions.append('Provide a targeted reward or discount to increase customer value perception.')
-    if any('DaySinceLastOrder' in key for key in features):
-        suggestions.append('Send a re-engagement campaign with recommendations or a limited-time offer.')
-    if not suggestions:
-        suggestions.append("Offer a tailored retention offer and monitor this customer's experience over the next few visits.")
-
-    return suggestions
-
-
-def get_model_scores():
-    """Return model comparison scores, dynamically computing the current best_model."""
-    model_names = ['XGBoost', 'Random Forest', 'LightGBM', 'Decision Tree']
-    if SCORES_PATH.exists():
-        scores = json.loads(SCORES_PATH.read_text(encoding='utf-8'))
-        trained = [n for n in model_names if scores.get(n, 0) > 0]
-        scores['best_model'] = max(trained, key=lambda n: scores[n]) if trained else 'XGBoost'
-        return scores
-    return {name: 0.0 for name in model_names} | {'best_model': 'XGBoost'}
 
 
 if __name__ == '__main__':

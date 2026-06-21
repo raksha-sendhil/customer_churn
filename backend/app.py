@@ -5,22 +5,33 @@ import numpy as np
 import pandas as pd
 from flask import Flask, jsonify, request, send_from_directory
 
-from xgBoost import (
-    compute_shap_values,
-    ensure_model_ready,
-    explain_row,
-    get_model_scores,
-    predict_probabilities,
-)
+import xgBoost as _xgb
+import decisionTree as _dt
+import lightgbm_model as _lgbm
+import random_forest_model as _rf
+from xgBoost import get_model_scores
 
 BASE_DIR = Path(__file__).resolve().parent
 FRONTEND_DIR = BASE_DIR.parent / 'frontend'
 
 app = Flask(__name__, static_folder=str(FRONTEND_DIR), static_url_path='')
 
+_MODULES = {
+    'XGBoost': _xgb,
+    'Decision Tree': _dt,
+    'LightGBM': _lgbm,
+    'Random Forest': _rf,
+}
+
+
+def _best_module():
+    """Return the model module with the highest F1 score."""
+    scores = get_model_scores()
+    best = scores.get('best_model', 'XGBoost')
+    return _MODULES.get(best, _xgb)
+
 
 def to_serializable(value):
-    # NaN / Inf are not valid JSON — convert to None (→ null).
     if isinstance(value, float) and (math.isnan(value) or math.isinf(value)):
         return None
     if isinstance(value, np.integer):
@@ -73,21 +84,22 @@ def predict():
     if 'Churn' in df.columns:
         df = df.drop(columns=['Churn'])
 
-    # Compute probabilities, encode, and SHAP values once for the whole batch.
-    probabilities, model, metadata, encoded = predict_probabilities(df)
-    shap_vals = compute_shap_values(model, encoded)
-
+    mod = _best_module()
     scores = get_model_scores()
     best_model_name = scores.get('best_model', 'XGBoost')
 
+    probabilities, model, metadata, encoded = mod.predict_probabilities(df)
+    shap_vals = mod.compute_shap_values(model, encoded)
+
     results = []
     for idx, risk in enumerate(probabilities):
-        explanation = explain_row(
+        explanation = mod.explain_row(
             df, idx,
             model=model,
             metadata=metadata,
             encoded=encoded,
             shap_values=shap_vals,
+            row_probability=float(risk),
         )
         risk_score = float(risk)
         if risk_score >= 0.75:
