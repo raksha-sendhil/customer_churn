@@ -106,7 +106,7 @@ function openModal(item) {
   modalSuggestions.innerHTML = (item.suggestions || []).map((t) => `<li>${t}</li>`).join('');
 
   // Feature impact bars
-  const features = item.topFeatures || [];
+  const features = (item.topFeatures || []).filter(f => !f.feature.includes('MaritalStatus'));
   const maxAbs = Math.max(...features.map((f) => Math.abs(f.impact)), 0.0001);
   modalFeatures.innerHTML = features.map((f) => {
     const pct = Math.round((Math.abs(f.impact) / maxAbs) * 100);

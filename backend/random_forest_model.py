@@ -185,8 +185,13 @@ def explain_row(
     positive_features = [f for f in top_features if f['impact'] > 0]
     negative_features = [f for f in top_features if f['impact'] < 0]
 
-    summary = [human_explanation(f['feature'], f['impact']) for f in positive_features]
-    summary += [human_explanation(f['feature'], f['impact'], positive=False) for f in negative_features[:2]]
+    _exclude = {'MaritalStatus', 'NumberOfAddress'}
+    positive_for_text = [f for f in positive_features if not any(x in f['feature'] for x in _exclude)]
+    negative_for_text = [f for f in negative_features if not any(x in f['feature'] for x in _exclude)]
+
+    summary = [human_explanation(f['feature'], f['impact']) for f in positive_for_text]
+    summary += [human_explanation(f['feature'], f['impact'], positive=False) for f in negative_for_text[:2]]
+    summary = list(dict.fromkeys(summary))
 
     if not summary:
         summary.append(
@@ -198,7 +203,7 @@ def explain_row(
         'risk_score': round(risk, 4),
         'top_features': top_features,
         'summary': summary,
-        'suggestions': build_suggestions(positive_features, frame.iloc[index]),
+        'suggestions': build_suggestions(positive_for_text, frame.iloc[index]),
         'feature_values': frame.iloc[index].to_dict(),
     }
 
