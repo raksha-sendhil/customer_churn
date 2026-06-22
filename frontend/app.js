@@ -193,7 +193,7 @@ async function loadModelScores() {
 
       const metricsDisplay = trained ? `
         <div class="metric-row">
-          <span class="metric-item"><span class="metric-label">Accuracy</span> ${(metrics.accuracy * 100).toFixed(1)}%</span>
+          <span class="metric-item"><span class="metric-label">F1</span> ${(metrics.f1 * 100).toFixed(1)}%</span>
           <span class="metric-item"><span class="metric-label">Precision</span> ${(metrics.precision * 100).toFixed(1)}%</span>
           <span class="metric-item"><span class="metric-label">Recall</span> ${(metrics.recall * 100).toFixed(1)}%</span>
         </div>

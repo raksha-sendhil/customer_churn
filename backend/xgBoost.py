@@ -235,11 +235,17 @@ def explain_row(
     positive_features = [item for item in top_features if item['impact'] > 0]
     negative_features = [item for item in top_features if item['impact'] < 0]
 
+    _exclude = {'MaritalStatus', 'NumberOfAddress'}
+    positive_for_text = [item for item in positive_features if not any(x in item['feature'] for x in _exclude)]
+    negative_for_text = [item for item in negative_features if not any(x in item['feature'] for x in _exclude)]
+
     summary = []
-    for item in positive_features:
+    for item in positive_for_text:
         summary.append(human_explanation(item['feature'], item['impact']))
-    for item in negative_features[:2]:
+    for item in negative_for_text[:2]:
         summary.append(human_explanation(item['feature'], item['impact'], positive=False))
+
+    summary = list(dict.fromkeys(summary))
 
     if not summary:
         summary.append(
@@ -251,7 +257,7 @@ def explain_row(
         'risk_score': round(risk, 4),
         'top_features': top_features,
         'summary': summary,
-        'suggestions': build_suggestions(positive_features, frame.iloc[index]),
+        'suggestions': build_suggestions(positive_for_text, frame.iloc[index]),
         'feature_values': frame.iloc[index].to_dict(),
     }
 
@@ -265,7 +271,9 @@ def human_explanation(feature_name: str, _impact: float, positive: bool = True):
             return 'Low satisfaction levels are raising churn risk. The customer seems less confident in the service, which can make them more likely to leave.'
         if 'Complain' in feature_name or 'complaint_x_inactive' in feature_name:
             return 'Recent complaints are pushing the churn risk up. Fast support follow-up and issue resolution would help rebuild trust.'
-        if 'Tenure' in feature_name or 'tenure_per_order' in feature_name:
+        if 'tenure_per_order' in feature_name:
+            return 'This customer has a low order frequency relative to their time with the brand, which is a sign of disengagement and raises churn risk.'
+        if 'Tenure' in feature_name:
             return 'This customer has a shorter time with the brand, and that can make them more willing to switch. A welcome or loyalty touchpoint would help.'
         if 'WarehouseToHome' in feature_name or 'Distance' in feature_name:
             return 'Delivery distance is making the experience less convenient, which increases the odds of churn. Better delivery options or faster fulfilment could help.'
@@ -277,6 +285,8 @@ def human_explanation(feature_name: str, _impact: float, positive: bool = True):
             return 'The customer has been inactive for a while, which is increasing churn risk. A re-engagement message or reminder could bring them back.'
         if 'PreferredPayment' in feature_name or 'Payment' in feature_name:
             return 'Payment preferences are a clue here, and the current setup may be reducing confidence. A smoother checkout experience could improve retention.'
+        if 'PreferedOrderCat' in feature_name or 'OrderCat' in feature_name:
+            return 'The preferred category might not contain a good selection of products, which could be pushing the customer towards churn.'
         return f'{label} is one of the main reasons this customer looks at risk. Improving this area could reduce the chance of churn.'
 
     else:
@@ -343,7 +353,7 @@ def get_model_scores():
             scores[name] = 0.0
 
     trained = [n for n in model_names if scores.get(n, 0) > 0]
-    scores['best_model'] = max(trained, key=lambda n: scores[n]) if trained else 'XGBoost'
+    scores['best_model'] = max(trained, key=lambda n: all_metrics[n]['recall']) if trained else 'Random Forest'
     scores['metrics'] = all_metrics
     return scores
 
